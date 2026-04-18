@@ -1,5 +1,5 @@
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { generatePositions, TemplateName } from "@/lib/templates";
 
@@ -10,74 +10,116 @@ interface Props {
   count?: number;
 }
 
-export const ParticleField = ({ template, expansion, hue, count = 4000 }: Props) => {
-  const pointsRef = useRef<THREE.Points>(null!);
-  const targetRef = useRef<Float32Array>(generatePositions(template, count));
-  const currentRef = useRef<Float32Array>(targetRef.current.slice());
-  const velocitiesRef = useRef<Float32Array>(new Float32Array(count * 3));
-  const lastTemplate = useRef<TemplateName>(template);
+export interface ParticleFieldHandle {
+  burst: (strength?: number) => void;
+}
 
-  // When template changes, regenerate target positions
-  if (lastTemplate.current !== template) {
-    targetRef.current = generatePositions(template, count);
-    lastTemplate.current = template;
+const vertexShader = /* glsl */ `
+  uniform float uSize;
+  uniform float uPixelRatio;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uSize * uPixelRatio * (300.0 / -mv.z);
   }
+`;
 
-  const geometry = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(currentRef.current, 3));
-    return g;
-  }, []);
+const fragmentShader = /* glsl */ `
+  uniform vec3 uColor;
+  void main() {
+    vec2 c = gl_PointCoord - 0.5;
+    float d = length(c);
+    if (d > 0.5) discard;
+    float alpha = smoothstep(0.5, 0.0, d);
+    // Soft inner core for glow
+    float core = smoothstep(0.35, 0.0, d);
+    vec3 col = uColor + core * 0.6;
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
 
-  const material = useMemo(
-    () =>
-      new THREE.PointsMaterial({
-        size: 0.045,
-        sizeAttenuation: true,
-        transparent: true,
-        opacity: 0.9,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        vertexColors: false,
-      }),
-    []
-  );
+export const ParticleField = forwardRef<ParticleFieldHandle, Props>(
+  ({ template, expansion, hue, count = 4000 }, ref) => {
+    const pointsRef = useRef<THREE.Points>(null!);
+    const targetRef = useRef<Float32Array>(generatePositions(template, count));
+    const currentRef = useRef<Float32Array>(targetRef.current.slice());
+    const velocitiesRef = useRef<Float32Array>(new Float32Array(count * 3));
+    const lastTemplate = useRef<TemplateName>(template);
 
-  useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05);
-    const cur = currentRef.current;
-    const tgt = targetRef.current;
-    const vel = velocitiesRef.current;
-    const exp = 0.7 + expansion * 1.8; // scale factor
-
-    for (let i = 0; i < cur.length; i += 3) {
-      const tx = tgt[i] * exp;
-      const ty = tgt[i + 1] * exp;
-      const tz = tgt[i + 2] * exp;
-
-      // Spring toward target
-      const ax = (tx - cur[i]) * 6 - vel[i] * 2;
-      const ay = (ty - cur[i + 1]) * 6 - vel[i + 1] * 2;
-      const az = (tz - cur[i + 2]) * 6 - vel[i + 2] * 2;
-      vel[i] += ax * dt;
-      vel[i + 1] += ay * dt;
-      vel[i + 2] += az * dt;
-      cur[i] += vel[i] * dt;
-      cur[i + 1] += vel[i + 1] * dt;
-      cur[i + 2] += vel[i + 2] * dt;
+    if (lastTemplate.current !== template) {
+      targetRef.current = generatePositions(template, count);
+      lastTemplate.current = template;
     }
 
-    geometry.attributes.position.needsUpdate = true;
+    const geometry = useMemo(() => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(currentRef.current, 3));
+      return g;
+    }, []);
 
-    // Color by hue
-    const color = new THREE.Color().setHSL(hue, 0.85, 0.6);
-    material.color.lerp(color, 0.1);
+    const material = useMemo(
+      () =>
+        new THREE.ShaderMaterial({
+          uniforms: {
+            uSize: { value: 0.18 },
+            uPixelRatio: { value: Math.min(2, window.devicePixelRatio || 1) },
+            uColor: { value: new THREE.Color().setHSL(0.75, 0.85, 0.6) },
+          },
+          vertexShader,
+          fragmentShader,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      []
+    );
 
-    // Gentle rotation
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y += dt * 0.15;
-    }
-  });
+    useImperativeHandle(ref, () => ({
+      burst: (strength = 1) => {
+        const vel = velocitiesRef.current;
+        const cur = currentRef.current;
+        for (let i = 0; i < cur.length; i += 3) {
+          // Outward kick from origin + random component
+          const len = Math.hypot(cur[i], cur[i + 1], cur[i + 2]) || 1;
+          const k = (4 + Math.random() * 6) * strength;
+          vel[i] += (cur[i] / len) * k + (Math.random() - 0.5) * 2;
+          vel[i + 1] += (cur[i + 1] / len) * k + (Math.random() - 0.5) * 2;
+          vel[i + 2] += (cur[i + 2] / len) * k + (Math.random() - 0.5) * 2;
+        }
+      },
+    }));
 
-  return <points ref={pointsRef} geometry={geometry} material={material} />;
-};
+    useFrame((_, delta) => {
+      const dt = Math.min(delta, 0.05);
+      const cur = currentRef.current;
+      const tgt = targetRef.current;
+      const vel = velocitiesRef.current;
+      const exp = 0.7 + expansion * 1.8;
+
+      for (let i = 0; i < cur.length; i += 3) {
+        const tx = tgt[i] * exp;
+        const ty = tgt[i + 1] * exp;
+        const tz = tgt[i + 2] * exp;
+        const ax = (tx - cur[i]) * 6 - vel[i] * 2;
+        const ay = (ty - cur[i + 1]) * 6 - vel[i + 1] * 2;
+        const az = (tz - cur[i + 2]) * 6 - vel[i + 2] * 2;
+        vel[i] += ax * dt;
+        vel[i + 1] += ay * dt;
+        vel[i + 2] += az * dt;
+        cur[i] += vel[i] * dt;
+        cur[i + 1] += vel[i + 1] * dt;
+        cur[i + 2] += vel[i + 2] * dt;
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+
+      const target = new THREE.Color().setHSL(hue, 0.85, 0.6);
+      (material.uniforms.uColor.value as THREE.Color).lerp(target, 0.1);
+
+      if (pointsRef.current) pointsRef.current.rotation.y += dt * 0.15;
+    });
+
+    return <points ref={pointsRef} geometry={geometry} material={material} />;
+  }
+);
+ParticleField.displayName = "ParticleField";
