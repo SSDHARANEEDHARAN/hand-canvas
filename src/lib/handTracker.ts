@@ -6,6 +6,7 @@ export interface HandState {
   handDistance: number; // 0..1, normalized distance between two hand centers (0 if <2 hands)
   avgY: number; // 0..1, average wrist y across hands (0 top, 1 bottom)
   primaryFingers: number; // fingers on dominant (first) hand 0..5
+  landmarks: NormalizedLandmark[][]; // raw landmark sets per hand for visualization
 }
 
 export const EMPTY_STATE: HandState = {
@@ -14,6 +15,7 @@ export const EMPTY_STATE: HandState = {
   handDistance: 0,
   avgY: 0.5,
   primaryFingers: 0,
+  landmarks: [],
 };
 
 // Tip and PIP indices for finger extension test
@@ -73,6 +75,7 @@ export async function createHandTracker(
       handDistance: dist,
       avgY: yAcc / list.length,
       primaryFingers: countFingers(list[0]),
+      landmarks: list.map((lm) => lm.slice()),
     });
   });
 
