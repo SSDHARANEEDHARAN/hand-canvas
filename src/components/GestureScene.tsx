@@ -23,7 +23,7 @@ export const GestureScene = () => {
   const [expansion, setExpansion] = useState(0.3);
   const [hue, setHue] = useState(0.75);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [, setErrorMsg] = useState<string>("");
   const [manualMode, setManualMode] = useState(false);
   const [flash, setFlash] = useState(0); // burst flash 0..1
   const lastSwitchRef = useRef(0);
@@ -245,7 +245,7 @@ export const GestureScene = () => {
           className="gap-1.5"
           data-testid="record-button"
         >
-          {recorder.isRecording ? <Square className="h-3 w-3 fill-current" /> : <Circle className="h-3 w-3 fill-current text-red-500" />}
+          {recorder.isRecording ? <Square className="h-3 w-3 fill-current" /> : <Circle className="h-3 w-3 fill-current text-destructive" />}
           {recorder.isRecording ? "Stop" : "Record"}
         </Button>
         <Button
