@@ -2,11 +2,12 @@ import { Hands, Results, NormalizedLandmark } from "@mediapipe/hands";
 
 export interface HandState {
   hands: number;
-  fingerCount: number; // total extended fingers across both hands
-  handDistance: number; // 0..1, normalized distance between two hand centers (0 if <2 hands)
-  avgY: number; // 0..1, average wrist y across hands (0 top, 1 bottom)
-  primaryFingers: number; // fingers on dominant (first) hand 0..5
-  landmarks: NormalizedLandmark[][]; // raw landmark sets per hand for visualization
+  fingerCount: number;
+  handDistance: number;
+  avgY: number;
+  primaryFingers: number;
+  landmarks: NormalizedLandmark[][];
+  pinching: boolean; // any hand currently pinching (thumb tip ↔ index tip)
 }
 
 export const EMPTY_STATE: HandState = {
@@ -16,6 +17,7 @@ export const EMPTY_STATE: HandState = {
   avgY: 0.5,
   primaryFingers: 0,
   landmarks: [],
+  pinching: false,
 };
 
 // Tip and PIP indices for finger extension test
@@ -59,9 +61,14 @@ export async function createHandTracker(
     }
     let fingers = 0;
     let yAcc = 0;
+    let pinching = false;
     for (const lm of list) {
       fingers += countFingers(lm);
       yAcc += lm[0].y;
+      const t = lm[4], idx = lm[8], wrist = lm[0], midMcp = lm[9];
+      const handSize = Math.hypot(wrist.x - midMcp.x, wrist.y - midMcp.y) || 0.1;
+      const tipDist = Math.hypot(t.x - idx.x, t.y - idx.y);
+      if (tipDist / handSize < 0.5) pinching = true;
     }
     let dist = 0;
     if (list.length >= 2) {
@@ -76,6 +83,7 @@ export async function createHandTracker(
       avgY: yAcc / list.length,
       primaryFingers: countFingers(list[0]),
       landmarks: list.map((lm) => lm.slice()),
+      pinching,
     });
   });
 
