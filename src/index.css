@@ -8,8 +8,11 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 240 30% 4%;
+    --foreground: 210 40% 98%;
+
+    --gesture-glow: 280 90% 65%;
+    --gesture-accent: 190 95% 60%;
 
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
