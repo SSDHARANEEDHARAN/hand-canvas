@@ -22,9 +22,10 @@ export const GestureScene = () => {
   const [expansion, setExpansion] = useState(0.3);
   const [hue, setHue] = useState(0.75);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [, setErrorMsg] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState<string>("");
   const [manualMode, setManualMode] = useState(false);
   const [flash, setFlash] = useState(0); // burst flash 0..1
+  const [cameraAttempt, setCameraAttempt] = useState(0);
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
