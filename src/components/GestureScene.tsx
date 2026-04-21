@@ -19,6 +19,7 @@ const PINCH_COOLDOWN_MS = 600;
 export const GestureScene = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fieldRef = useRef<ParticleFieldHandle>(null);
+  const trailRef = useRef<DrawTrailHandle>(null);
   const [state, setState] = useState<HandState>(EMPTY_STATE);
   const [template, setTemplate] = useState<TemplateName>("sphere");
   const [expansion, setExpansion] = useState(0.3);
@@ -28,9 +29,11 @@ export const GestureScene = () => {
   const [manualMode, setManualMode] = useState(false);
   const [flash, setFlash] = useState(0); // burst flash 0..1
   const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [drawMode, setDrawMode] = useState(false);
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
+  const drawingRef = useRef(false);
   const recorder = useCanvasRecorder();
 
   const triggerBurst = useCallback((strength = 1) => {
