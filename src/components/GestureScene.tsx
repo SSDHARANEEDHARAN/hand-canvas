@@ -343,15 +343,36 @@ export const GestureScene = () => {
         >
           💥 Burst
         </Button>
+        <Button
+          size="sm"
+          variant={drawMode ? "default" : "secondary"}
+          onClick={() => setDrawMode((d) => !d)}
+          className="gap-1.5"
+          data-testid="draw-button"
+        >
+          <Pencil className="h-3 w-3" />
+          {drawMode ? "Drawing" : "Draw"}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => trailRef.current?.clear()}
+          className="gap-1.5"
+          data-testid="clear-button"
+        >
+          <Eraser className="h-3 w-3" />
+          Clear
+        </Button>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs space-y-1 rounded-lg bg-black/40 p-3 text-[11px] text-white/80 backdrop-blur-md">
         <div className="font-semibold text-white">Controls</div>
         <div>👐 Two-hand distance → expansion</div>
         <div>✋ Finger count → template (0–6)</div>
-        <div>🤏 Pinch (thumb + index) → burst</div>
+        <div>🤏 Pinch (thumb + index) → burst / end stroke</div>
         <div>↕️ Hand height → color</div>
-        <div className="pt-1 opacity-70">Keys: 1–7 templates · ↑↓ expansion · ←→ color · Space burst · G toggle</div>
+        <div>✏️ Draw mode: index fingertip writes in 3D</div>
+        <div className="pt-1 opacity-70">Keys: 1–7 templates · ↑↓ expansion · ←→ color · Space burst · G manual · D draw · C clear</div>
       </div>
     </div>
   );
