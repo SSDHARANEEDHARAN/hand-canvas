@@ -41,14 +41,23 @@ export const GestureScene = () => {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
     let mounted = true;
+    let localStream: MediaStream | null = null;
 
     (async () => {
       setStatus("loading");
+      setErrorMsg("");
       try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("getUserMedia not supported in this browser");
+        }
+        if (!window.isSecureContext) {
+          throw new Error("Camera requires HTTPS (secure context)");
+        }
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" },
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
           audio: false,
         });
+        localStream = stream;
         if (!mounted) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -60,8 +69,14 @@ export const GestureScene = () => {
           if (mounted) setState(s);
         });
         setStatus("ready");
+        setManualMode(false);
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Camera access denied";
+        const err = e as { name?: string; message?: string };
+        let msg = err?.message || "Camera access failed";
+        if (err?.name === "NotAllowedError") msg = "Camera permission denied. Allow access in your browser settings.";
+        else if (err?.name === "NotFoundError") msg = "No camera device found.";
+        else if (err?.name === "NotReadableError") msg = "Camera is in use by another app.";
+        else if (err?.name === "OverconstrainedError") msg = "Camera doesn't support requested settings.";
         setErrorMsg(msg);
         setStatus("error");
         setManualMode(true);
@@ -72,10 +87,11 @@ export const GestureScene = () => {
       mounted = false;
       cleanup?.();
       const v = videoRef.current;
-      const stream = v?.srcObject as MediaStream | null;
+      const stream = (v?.srcObject as MediaStream | null) ?? localStream;
       stream?.getTracks().forEach((t) => t.stop());
+      if (v) v.srcObject = null;
     };
-  }, []);
+  }, [cameraAttempt]);
 
   // Drive controls + pinch detection from hand state
   useEffect(() => {
