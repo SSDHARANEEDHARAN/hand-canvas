@@ -3,20 +3,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ParticleField, ParticleFieldHandle } from "./ParticleField";
 import { LandmarkOverlay } from "./LandmarkOverlay";
 import { ManualControls } from "./ManualControls";
+import { DrawTrail, DrawTrailHandle } from "./DrawTrail";
 import { TEMPLATE_ORDER, TemplateName } from "@/lib/templates";
 import { createHandTracker, EMPTY_STATE, HandState } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { Button } from "@/components/ui/button";
-import { Circle, Square } from "lucide-react";
+import { Circle, Square, Pencil, Eraser } from "lucide-react";
 
 const CAM_W = 176;
 const CAM_H = 128;
 const PINCH_COOLDOWN_MS = 600;
 
+
 export const GestureScene = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fieldRef = useRef<ParticleFieldHandle>(null);
+  const trailRef = useRef<DrawTrailHandle>(null);
   const [state, setState] = useState<HandState>(EMPTY_STATE);
   const [template, setTemplate] = useState<TemplateName>("sphere");
   const [expansion, setExpansion] = useState(0.3);
@@ -26,9 +29,11 @@ export const GestureScene = () => {
   const [manualMode, setManualMode] = useState(false);
   const [flash, setFlash] = useState(0); // burst flash 0..1
   const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [drawMode, setDrawMode] = useState(false);
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
+  const drawingRef = useRef(false);
   const recorder = useCanvasRecorder();
 
   const triggerBurst = useCallback((strength = 1) => {
@@ -95,15 +100,39 @@ export const GestureScene = () => {
 
   // Drive controls + pinch detection from hand state
   useEffect(() => {
-    // Pinch edge-trigger always (even in manual mode)
+    // Pinch edge-trigger
     if (state.pinching && !wasPinchingRef.current) {
       const now = performance.now();
       if (now - lastPinchRef.current > PINCH_COOLDOWN_MS) {
         lastPinchRef.current = now;
-        triggerBurst(1);
+        if (drawMode) {
+          // End current stroke on pinch
+          trailRef.current?.endStroke();
+          drawingRef.current = false;
+        } else {
+          triggerBurst(1);
+        }
       }
     }
     wasPinchingRef.current = state.pinching;
+
+    // Draw mode: sample index fingertip and add points
+    if (drawMode) {
+      const lm = state.landmarks[0];
+      if (lm && lm[8] && !state.pinching) {
+        const tip = lm[8];
+        // Mirror x to match flipped video preview, map to scene space
+        const x = (0.5 - tip.x) * 8; // wider X range
+        const y = (0.5 - tip.y) * 6; // invert Y
+        const z = (tip.z ?? 0) * -4; // depth
+        trailRef.current?.addPoint(x, y, z, hue);
+        drawingRef.current = true;
+      } else if (drawingRef.current && (!lm || state.pinching)) {
+        trailRef.current?.endStroke();
+        drawingRef.current = false;
+      }
+      return; // skip template/expansion control while drawing
+    }
 
     if (manualMode) return;
 
@@ -124,7 +153,7 @@ export const GestureScene = () => {
         lastSwitchRef.current = now;
       }
     }
-  }, [state, template, manualMode, triggerBurst]);
+  }, [state, template, manualMode, triggerBurst, drawMode, hue]);
 
   // Decay burst flash
   useEffect(() => {
@@ -170,6 +199,12 @@ export const GestureScene = () => {
       if (e.key.toLowerCase() === "g" && status === "ready") {
         setManualMode((m) => !m);
       }
+      if (e.key.toLowerCase() === "d") {
+        setDrawMode((d) => !d);
+      }
+      if (e.key.toLowerCase() === "c") {
+        trailRef.current?.clear();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -189,6 +224,7 @@ export const GestureScene = () => {
         <color attach="background" args={["#06060f"]} />
         <ambientLight intensity={0.4} />
         <ParticleField ref={fieldRef} template={template} expansion={expansion} hue={hue} />
+        <DrawTrail ref={trailRef} />
       </Canvas>
 
 
@@ -307,15 +343,36 @@ export const GestureScene = () => {
         >
           💥 Burst
         </Button>
+        <Button
+          size="sm"
+          variant={drawMode ? "default" : "secondary"}
+          onClick={() => setDrawMode((d) => !d)}
+          className="gap-1.5"
+          data-testid="draw-button"
+        >
+          <Pencil className="h-3 w-3" />
+          {drawMode ? "Drawing" : "Draw"}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => trailRef.current?.clear()}
+          className="gap-1.5"
+          data-testid="clear-button"
+        >
+          <Eraser className="h-3 w-3" />
+          Clear
+        </Button>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs space-y-1 rounded-lg bg-black/40 p-3 text-[11px] text-white/80 backdrop-blur-md">
         <div className="font-semibold text-white">Controls</div>
         <div>👐 Two-hand distance → expansion</div>
         <div>✋ Finger count → template (0–6)</div>
-        <div>🤏 Pinch (thumb + index) → burst</div>
+        <div>🤏 Pinch (thumb + index) → burst / end stroke</div>
         <div>↕️ Hand height → color</div>
-        <div className="pt-1 opacity-70">Keys: 1–7 templates · ↑↓ expansion · ←→ color · Space burst · G toggle</div>
+        <div>✏️ Draw mode: index fingertip writes in 3D</div>
+        <div className="pt-1 opacity-70">Keys: 1–7 templates · ↑↓ expansion · ←→ color · Space burst · G manual · D draw · C clear</div>
       </div>
     </div>
   );
