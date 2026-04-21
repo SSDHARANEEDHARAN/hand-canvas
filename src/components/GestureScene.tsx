@@ -100,15 +100,39 @@ export const GestureScene = () => {
 
   // Drive controls + pinch detection from hand state
   useEffect(() => {
-    // Pinch edge-trigger always (even in manual mode)
+    // Pinch edge-trigger
     if (state.pinching && !wasPinchingRef.current) {
       const now = performance.now();
       if (now - lastPinchRef.current > PINCH_COOLDOWN_MS) {
         lastPinchRef.current = now;
-        triggerBurst(1);
+        if (drawMode) {
+          // End current stroke on pinch
+          trailRef.current?.endStroke();
+          drawingRef.current = false;
+        } else {
+          triggerBurst(1);
+        }
       }
     }
     wasPinchingRef.current = state.pinching;
+
+    // Draw mode: sample index fingertip and add points
+    if (drawMode) {
+      const lm = state.landmarks[0];
+      if (lm && lm[8] && !state.pinching) {
+        const tip = lm[8];
+        // Mirror x to match flipped video preview, map to scene space
+        const x = (0.5 - tip.x) * 8; // wider X range
+        const y = (0.5 - tip.y) * 6; // invert Y
+        const z = (tip.z ?? 0) * -4; // depth
+        trailRef.current?.addPoint(x, y, z, hue);
+        drawingRef.current = true;
+      } else if (drawingRef.current && (!lm || state.pinching)) {
+        trailRef.current?.endStroke();
+        drawingRef.current = false;
+      }
+      return; // skip template/expansion control while drawing
+    }
 
     if (manualMode) return;
 
@@ -129,7 +153,7 @@ export const GestureScene = () => {
         lastSwitchRef.current = now;
       }
     }
-  }, [state, template, manualMode, triggerBurst]);
+  }, [state, template, manualMode, triggerBurst, drawMode, hue]);
 
   // Decay burst flash
   useEffect(() => {
