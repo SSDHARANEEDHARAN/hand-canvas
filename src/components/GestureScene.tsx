@@ -218,6 +218,7 @@ export const GestureScene = () => {
         <color attach="background" args={["#06060f"]} />
         <ambientLight intensity={0.4} />
         <ParticleField ref={fieldRef} template={template} expansion={expansion} hue={hue} />
+        <DrawTrail ref={trailRef} />
       </Canvas>
 
 
