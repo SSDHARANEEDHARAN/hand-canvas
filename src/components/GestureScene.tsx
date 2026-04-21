@@ -58,6 +58,16 @@ export const GestureScene = () => {
         if (!window.isSecureContext) {
           throw new Error("Camera requires HTTPS (secure context)");
         }
+        // Pre-check available video devices for clearer errors
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const cams = devices.filter((d) => d.kind === "videoinput");
+          if (cams.length === 0) {
+            throw Object.assign(new Error("No camera detected on this system."), { name: "NotFoundError" });
+          }
+        } catch {
+          // ignore enumerate errors; getUserMedia will surface a real reason
+        }
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
           audio: false,
