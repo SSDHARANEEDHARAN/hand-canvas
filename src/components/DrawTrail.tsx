@@ -2,10 +2,16 @@ import { useMemo, forwardRef, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 
+export interface ExportedStroke {
+  points: { x: number; y: number; z: number }[];
+  colors: { r: number; g: number; b: number }[];
+}
+
 export interface DrawTrailHandle {
   addPoint: (x: number, y: number, z: number, hue: number) => void;
   endStroke: () => void;
   clear: () => void;
+  getStrokes: () => ExportedStroke[];
 }
 
 interface Stroke {
@@ -74,6 +80,17 @@ export const DrawTrail = forwardRef<DrawTrailHandle>((_, ref) => {
       strokesRef.current = [];
       currentRef.current = null;
       lastPointRef.current = null;
+    },
+    getStrokes: () => {
+      return strokesRef.current.map((s) => {
+        const points: { x: number; y: number; z: number }[] = [];
+        const colors: { r: number; g: number; b: number }[] = [];
+        for (let i = 0; i < s.positions.length; i += 3) {
+          points.push({ x: s.positions[i], y: s.positions[i + 1], z: s.positions[i + 2] });
+          colors.push({ r: s.colors[i], g: s.colors[i + 1], b: s.colors[i + 2] });
+        }
+        return { points, colors };
+      });
     },
   }));
 

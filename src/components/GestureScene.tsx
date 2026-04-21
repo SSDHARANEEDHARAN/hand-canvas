@@ -9,7 +9,14 @@ import { createHandTracker, EMPTY_STATE, HandState } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { Button } from "@/components/ui/button";
-import { Circle, Square, Pencil, Eraser } from "lucide-react";
+import { Circle, Square, Pencil, Eraser, Download } from "lucide-react";
+import { exportTrailAsPNG, exportTrailAsSVG } from "@/lib/exportTrail";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const CAM_W = 176;
 const CAM_H = 128;
@@ -57,6 +64,16 @@ export const GestureScene = () => {
         }
         if (!window.isSecureContext) {
           throw new Error("Camera requires HTTPS (secure context)");
+        }
+        // Pre-check available video devices for clearer errors
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const cams = devices.filter((d) => d.kind === "videoinput");
+          if (cams.length === 0) {
+            throw Object.assign(new Error("No camera detected on this system."), { name: "NotFoundError" });
+          }
+        } catch {
+          // ignore enumerate errors; getUserMedia will surface a real reason
         }
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
@@ -363,6 +380,34 @@ export const GestureScene = () => {
           <Eraser className="h-3 w-3" />
           Clear
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="secondary" className="gap-1.5" data-testid="export-button">
+              <Download className="h-3 w-3" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                const s = trailRef.current?.getStrokes() ?? [];
+                if (s.length === 0) return;
+                exportTrailAsPNG(s);
+              }}
+            >
+              Download PNG
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const s = trailRef.current?.getStrokes() ?? [];
+                if (s.length === 0) return;
+                exportTrailAsSVG(s);
+              }}
+            >
+              Download SVG
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs space-y-1 rounded-lg bg-black/40 p-3 text-[11px] text-white/80 backdrop-blur-md">
