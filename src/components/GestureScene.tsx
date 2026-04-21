@@ -1,5 +1,4 @@
 import { Canvas } from "@react-three/fiber";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ParticleField, ParticleFieldHandle } from "./ParticleField";
 import { LandmarkOverlay } from "./LandmarkOverlay";
@@ -173,9 +172,6 @@ export const GestureScene = () => {
         <color attach="background" args={["#06060f"]} />
         <ambientLight intensity={0.4} />
         <ParticleField ref={fieldRef} template={template} expansion={expansion} hue={hue} />
-        <EffectComposer>
-          <Bloom intensity={1.2} luminanceThreshold={0.05} luminanceSmoothing={0.4} mipmapBlur />
-        </EffectComposer>
       </Canvas>
 
       {/* Burst flash overlay */}
