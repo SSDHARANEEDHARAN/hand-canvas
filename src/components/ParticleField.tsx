@@ -59,17 +59,12 @@ export const ParticleField = forwardRef<ParticleFieldHandle, Props>(
 
     const material = useMemo(
       () =>
-        new THREE.ShaderMaterial({
-          uniforms: {
-            uSize: { value: 0.18 },
-            uPixelRatio: { value: Math.min(2, window.devicePixelRatio || 1) },
-            uColor: { value: new THREE.Color().setHSL(0.75, 0.85, 0.6) },
-          },
-          vertexShader,
-          fragmentShader,
+        new THREE.PointsMaterial({
+          size: 0.06,
+          color: new THREE.Color().setHSL(0.75, 0.85, 0.6),
           transparent: true,
           depthWrite: false,
-          blending: THREE.AdditiveBlending,
+          sizeAttenuation: true,
         }),
       []
     );
@@ -114,7 +109,7 @@ export const ParticleField = forwardRef<ParticleFieldHandle, Props>(
       geometry.attributes.position.needsUpdate = true;
 
       const target = new THREE.Color().setHSL(hue, 0.85, 0.6);
-      (material.uniforms.uColor.value as THREE.Color).lerp(target, 0.1);
+      (material as THREE.PointsMaterial).color.lerp(target, 0.1);
 
       if (pointsRef.current) pointsRef.current.rotation.y += dt * 0.15;
     });
