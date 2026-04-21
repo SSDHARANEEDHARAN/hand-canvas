@@ -3,16 +3,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ParticleField, ParticleFieldHandle } from "./ParticleField";
 import { LandmarkOverlay } from "./LandmarkOverlay";
 import { ManualControls } from "./ManualControls";
+import { DrawTrail, DrawTrailHandle } from "./DrawTrail";
 import { TEMPLATE_ORDER, TemplateName } from "@/lib/templates";
 import { createHandTracker, EMPTY_STATE, HandState } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { Button } from "@/components/ui/button";
-import { Circle, Square } from "lucide-react";
+import { Circle, Square, Pencil, Eraser } from "lucide-react";
 
 const CAM_W = 176;
 const CAM_H = 128;
 const PINCH_COOLDOWN_MS = 600;
+
 
 export const GestureScene = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
