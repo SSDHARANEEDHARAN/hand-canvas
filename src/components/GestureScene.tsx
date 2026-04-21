@@ -380,6 +380,34 @@ export const GestureScene = () => {
           <Eraser className="h-3 w-3" />
           Clear
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="secondary" className="gap-1.5" data-testid="export-button">
+              <Download className="h-3 w-3" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                const s = trailRef.current?.getStrokes() ?? [];
+                if (s.length === 0) return;
+                exportTrailAsPNG(s);
+              }}
+            >
+              Download PNG
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const s = trailRef.current?.getStrokes() ?? [];
+                if (s.length === 0) return;
+                exportTrailAsSVG(s);
+              }}
+            >
+              Download SVG
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs space-y-1 rounded-lg bg-black/40 p-3 text-[11px] text-white/80 backdrop-blur-md">
