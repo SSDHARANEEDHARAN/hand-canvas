@@ -174,15 +174,6 @@ export const GestureScene = () => {
         <ParticleField ref={fieldRef} template={template} expansion={expansion} hue={hue} />
       </Canvas>
 
-      {/* Burst flash overlay */}
-      {flash > 0 && (
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: `radial-gradient(circle at center, hsl(${Math.round(hue * 360)} 90% 60% / ${flash * 0.35}) 0%, transparent 60%)`,
-          }}
-        />
-      )}
 
       <ManualControls
         template={template}
