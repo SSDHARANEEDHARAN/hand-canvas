@@ -14,29 +14,6 @@ export interface ParticleFieldHandle {
   burst: (strength?: number) => void;
 }
 
-const vertexShader = /* glsl */ `
-  uniform float uSize;
-  uniform float uPixelRatio;
-  void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * mv;
-    gl_PointSize = uSize * uPixelRatio * (300.0 / -mv.z);
-  }
-`;
-
-const fragmentShader = /* glsl */ `
-  uniform vec3 uColor;
-  void main() {
-    vec2 c = gl_PointCoord - 0.5;
-    float d = length(c);
-    if (d > 0.5) discard;
-    float alpha = smoothstep(0.5, 0.0, d);
-    // Soft inner core for glow
-    float core = smoothstep(0.35, 0.0, d);
-    vec3 col = uColor + core * 0.6;
-    gl_FragColor = vec4(col, alpha);
-  }
-`;
 
 export const ParticleField = forwardRef<ParticleFieldHandle, Props>(
   ({ template, expansion, hue, count = 4000 }, ref) => {
