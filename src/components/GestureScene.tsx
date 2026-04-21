@@ -9,7 +9,14 @@ import { createHandTracker, EMPTY_STATE, HandState } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { Button } from "@/components/ui/button";
-import { Circle, Square, Pencil, Eraser } from "lucide-react";
+import { Circle, Square, Pencil, Eraser, Download } from "lucide-react";
+import { exportTrailAsPNG, exportTrailAsSVG } from "@/lib/exportTrail";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const CAM_W = 176;
 const CAM_H = 128;
