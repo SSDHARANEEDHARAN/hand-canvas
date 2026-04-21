@@ -22,9 +22,10 @@ export const GestureScene = () => {
   const [expansion, setExpansion] = useState(0.3);
   const [hue, setHue] = useState(0.75);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [, setErrorMsg] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState<string>("");
   const [manualMode, setManualMode] = useState(false);
   const [flash, setFlash] = useState(0); // burst flash 0..1
+  const [cameraAttempt, setCameraAttempt] = useState(0);
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
@@ -40,14 +41,23 @@ export const GestureScene = () => {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
     let mounted = true;
+    let localStream: MediaStream | null = null;
 
     (async () => {
       setStatus("loading");
+      setErrorMsg("");
       try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("getUserMedia not supported in this browser");
+        }
+        if (!window.isSecureContext) {
+          throw new Error("Camera requires HTTPS (secure context)");
+        }
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" },
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
           audio: false,
         });
+        localStream = stream;
         if (!mounted) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -59,8 +69,14 @@ export const GestureScene = () => {
           if (mounted) setState(s);
         });
         setStatus("ready");
+        setManualMode(false);
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Camera access denied";
+        const err = e as { name?: string; message?: string };
+        let msg = err?.message || "Camera access failed";
+        if (err?.name === "NotAllowedError") msg = "Camera permission denied. Allow access in your browser settings.";
+        else if (err?.name === "NotFoundError") msg = "No camera device found.";
+        else if (err?.name === "NotReadableError") msg = "Camera is in use by another app.";
+        else if (err?.name === "OverconstrainedError") msg = "Camera doesn't support requested settings.";
         setErrorMsg(msg);
         setStatus("error");
         setManualMode(true);
@@ -71,10 +87,11 @@ export const GestureScene = () => {
       mounted = false;
       cleanup?.();
       const v = videoRef.current;
-      const stream = v?.srcObject as MediaStream | null;
+      const stream = (v?.srcObject as MediaStream | null) ?? localStream;
       stream?.getTracks().forEach((t) => t.stop());
+      if (v) v.srcObject = null;
     };
-  }, []);
+  }, [cameraAttempt]);
 
   // Drive controls + pinch detection from hand state
   useEffect(() => {
@@ -186,29 +203,42 @@ export const GestureScene = () => {
 
       {/* Camera preview + landmark overlay */}
       <div
-        className="pointer-events-none absolute bottom-4 right-4 overflow-hidden rounded-lg border border-white/10 shadow-2xl"
-        style={{ width: CAM_W, height: CAM_H }}
+        className="absolute bottom-4 right-4 overflow-hidden rounded-lg border border-white/10 shadow-2xl"
+        style={{ width: status === "error" ? 240 : CAM_W, height: status === "error" ? 150 : CAM_H }}
       >
         <video
           ref={videoRef}
           playsInline
           muted
-          className="absolute inset-0 h-full w-full -scale-x-100 object-cover opacity-80"
+          className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100 object-cover opacity-80"
         />
         <LandmarkOverlay
           landmarks={state.landmarks}
           width={CAM_W}
           height={CAM_H}
-          className="absolute inset-0 h-full w-full"
+          className="pointer-events-none absolute inset-0 h-full w-full"
         />
         {state.pinching && (
-          <div className="absolute left-1 top-1 rounded bg-primary/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+          <div className="pointer-events-none absolute left-1 top-1 rounded bg-primary/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
             PINCH
           </div>
         )}
-        {status !== "ready" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-[10px] text-white/70">
-            {status === "loading" ? "Camera…" : "No camera"}
+        {status === "loading" && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 text-[10px] text-white/70">
+            Camera…
+          </div>
+        )}
+        {status === "error" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/85 p-2 text-center">
+            <div className="text-[10px] leading-tight text-white/80">{errorMsg || "No camera"}</div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setCameraAttempt((n) => n + 1)}
+            >
+              Retry camera
+            </Button>
           </div>
         )}
       </div>
