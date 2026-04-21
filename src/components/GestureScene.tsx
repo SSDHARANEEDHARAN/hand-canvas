@@ -199,6 +199,12 @@ export const GestureScene = () => {
       if (e.key.toLowerCase() === "g" && status === "ready") {
         setManualMode((m) => !m);
       }
+      if (e.key.toLowerCase() === "d") {
+        setDrawMode((d) => !d);
+      }
+      if (e.key.toLowerCase() === "c") {
+        trailRef.current?.clear();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
