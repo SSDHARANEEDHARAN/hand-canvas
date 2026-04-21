@@ -81,6 +81,17 @@ export const DrawTrail = forwardRef<DrawTrailHandle>((_, ref) => {
       currentRef.current = null;
       lastPointRef.current = null;
     },
+    getStrokes: () => {
+      return strokesRef.current.map((s) => {
+        const points: { x: number; y: number; z: number }[] = [];
+        const colors: { r: number; g: number; b: number }[] = [];
+        for (let i = 0; i < s.positions.length; i += 3) {
+          points.push({ x: s.positions[i], y: s.positions[i + 1], z: s.positions[i + 2] });
+          colors.push({ r: s.colors[i], g: s.colors[i + 1], b: s.colors[i + 2] });
+        }
+        return { points, colors };
+      });
+    },
   }));
 
   useFrame(() => {
