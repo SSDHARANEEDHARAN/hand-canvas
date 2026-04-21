@@ -2,10 +2,16 @@ import { useMemo, forwardRef, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 
+export interface ExportedStroke {
+  points: { x: number; y: number; z: number }[];
+  colors: { r: number; g: number; b: number }[];
+}
+
 export interface DrawTrailHandle {
   addPoint: (x: number, y: number, z: number, hue: number) => void;
   endStroke: () => void;
   clear: () => void;
+  getStrokes: () => ExportedStroke[];
 }
 
 interface Stroke {
