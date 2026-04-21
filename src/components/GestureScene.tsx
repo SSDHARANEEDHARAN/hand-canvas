@@ -203,29 +203,42 @@ export const GestureScene = () => {
 
       {/* Camera preview + landmark overlay */}
       <div
-        className="pointer-events-none absolute bottom-4 right-4 overflow-hidden rounded-lg border border-white/10 shadow-2xl"
-        style={{ width: CAM_W, height: CAM_H }}
+        className="absolute bottom-4 right-4 overflow-hidden rounded-lg border border-white/10 shadow-2xl"
+        style={{ width: status === "error" ? 240 : CAM_W, height: status === "error" ? 150 : CAM_H }}
       >
         <video
           ref={videoRef}
           playsInline
           muted
-          className="absolute inset-0 h-full w-full -scale-x-100 object-cover opacity-80"
+          className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100 object-cover opacity-80"
         />
         <LandmarkOverlay
           landmarks={state.landmarks}
           width={CAM_W}
           height={CAM_H}
-          className="absolute inset-0 h-full w-full"
+          className="pointer-events-none absolute inset-0 h-full w-full"
         />
         {state.pinching && (
-          <div className="absolute left-1 top-1 rounded bg-primary/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+          <div className="pointer-events-none absolute left-1 top-1 rounded bg-primary/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
             PINCH
           </div>
         )}
-        {status !== "ready" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-[10px] text-white/70">
-            {status === "loading" ? "Camera…" : "No camera"}
+        {status === "loading" && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 text-[10px] text-white/70">
+            Camera…
+          </div>
+        )}
+        {status === "error" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/85 p-2 text-center">
+            <div className="text-[10px] leading-tight text-white/80">{errorMsg || "No camera"}</div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setCameraAttempt((n) => n + 1)}
+            >
+              Retry camera
+            </Button>
           </div>
         )}
       </div>
