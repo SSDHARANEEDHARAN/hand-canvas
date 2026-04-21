@@ -243,6 +243,40 @@ export const GestureScene = () => {
         )}
       </div>
 
+      {/* Camera setup checklist */}
+      {status === "error" && (
+        <div className="absolute left-1/2 top-1/2 z-20 w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/10 bg-black/80 p-4 text-xs text-white/90 backdrop-blur-md shadow-2xl">
+          <div className="mb-2 text-sm font-semibold">Camera setup</div>
+          <div className="mb-3 text-[11px] text-white/70">{errorMsg || "Camera unavailable"}</div>
+          <ul className="space-y-1.5 text-[11px]">
+            <li className="flex items-start gap-2">
+              <span>{window.isSecureContext ? "✅" : "❌"}</span>
+              <span>Page is served over HTTPS</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>🔒</span>
+              <span>Click the camera icon in the address bar and allow access</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>📷</span>
+              <span>Close other apps using the camera (Zoom, Meet, OBS…)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>🔄</span>
+              <span>After granting, click Retry below (or refresh the page)</span>
+            </li>
+          </ul>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setCameraAttempt((n) => n + 1)}>
+              Retry camera
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStatus("idle")}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* HUD */}
       <div className="pointer-events-none absolute left-4 top-4 space-y-1 rounded-lg bg-black/40 p-3 text-xs text-white/90 backdrop-blur-md">
         <div className="text-sm font-semibold">Gesture Particles</div>
