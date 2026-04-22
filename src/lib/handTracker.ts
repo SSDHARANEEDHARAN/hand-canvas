@@ -1,5 +1,6 @@
-// Load MediaPipe Hands from CDN at runtime to avoid Vite bundling issues
-// (bundling mangles the global `Hands` constructor → "zX.Hands is not a constructor").
+// Load MediaPipe Hands from CDN at runtime to avoid Vite bundling issues.
+
+import type { FingerKey, GestureSettings } from "./gestureSettings";
 
 export interface NormalizedLandmark {
   x: number;
@@ -15,12 +16,12 @@ export interface HandState {
   primaryFingers: number;
   landmarks: NormalizedLandmark[][];
   pinching: boolean;
-  // Bitmask-ish flags for primary hand
-  indexExtended: boolean;
-  middleExtended: boolean;
-  ringExtended: boolean;
-  pinkyExtended: boolean;
-  thumbExtended: boolean;
+  // Per-finger flags for primary hand
+  extended: Record<FingerKey, boolean>;
+  // Whether the configured "pointing" gesture is currently active
+  isPointing: boolean;
+  // Smoothed index fingertip in MediaPipe coords (0..1, mirrored x already? no — raw)
+  smoothedTip: { x: number; y: number; z: number } | null;
 }
 
 export const EMPTY_STATE: HandState = {
@@ -31,31 +32,39 @@ export const EMPTY_STATE: HandState = {
   primaryFingers: 0,
   landmarks: [],
   pinching: false,
-  indexExtended: false,
-  middleExtended: false,
-  ringExtended: false,
-  pinkyExtended: false,
-  thumbExtended: false,
+  extended: { thumb: false, index: false, middle: false, ring: false, pinky: false },
+  isPointing: false,
+  smoothedTip: null,
 };
 
-const FINGERS = [
-  { tip: 8, pip: 6 },
-  { tip: 12, pip: 10 },
-  { tip: 16, pip: 14 },
-  { tip: 20, pip: 18 },
-];
+const FINGER_LANDMARKS: Record<Exclude<FingerKey, "thumb">, { tip: number; pip: number }> = {
+  index: { tip: 8, pip: 6 },
+  middle: { tip: 12, pip: 10 },
+  ring: { tip: 16, pip: 14 },
+  pinky: { tip: 20, pip: 18 },
+};
 
-function extendedFlags(lm: NormalizedLandmark[]) {
-  const ext = FINGERS.map((f) => lm[f.tip].y < lm[f.pip].y - 0.02);
-  const thumb = Math.abs(lm[4].x - lm[2].x) > 0.06;
-  return {
-    index: ext[0],
-    middle: ext[1],
-    ring: ext[2],
-    pinky: ext[3],
-    thumb,
-    count: ext.filter(Boolean).length + (thumb ? 1 : 0),
+function computeExtended(lm: NormalizedLandmark[], strictness: number): Record<FingerKey, boolean> {
+  // strictness 0..1 → margin 0.005..0.05
+  const margin = 0.005 + strictness * 0.045;
+  const ext = {
+    thumb: Math.abs(lm[4].x - lm[2].x) > 0.04 + strictness * 0.05,
+    index: lm[FINGER_LANDMARKS.index.tip].y < lm[FINGER_LANDMARKS.index.pip].y - margin,
+    middle: lm[FINGER_LANDMARKS.middle.tip].y < lm[FINGER_LANDMARKS.middle.pip].y - margin,
+    ring: lm[FINGER_LANDMARKS.ring.tip].y < lm[FINGER_LANDMARKS.ring.pip].y - margin,
+    pinky: lm[FINGER_LANDMARKS.pinky.tip].y < lm[FINGER_LANDMARKS.pinky.pip].y - margin,
   };
+  return ext;
+}
+
+function isPointingGesture(
+  ext: Record<FingerKey, boolean>,
+  required: FingerKey[],
+  folded: FingerKey[]
+): boolean {
+  for (const f of required) if (!ext[f]) return false;
+  for (const f of folded) if (ext[f]) return false;
+  return true;
 }
 
 const CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240";
@@ -89,13 +98,22 @@ interface MPHands {
   close: () => Promise<void>;
 }
 
+export interface HandTrackerHandle {
+  stop: () => void;
+  updateSettings: (s: GestureSettings) => void;
+}
+
 export async function createHandTracker(
   video: HTMLVideoElement,
-  onUpdate: (s: HandState) => void
-): Promise<() => void> {
+  onUpdate: (s: HandState) => void,
+  initialSettings: GestureSettings
+): Promise<HandTrackerHandle> {
   await loadHandsScript();
   const HandsCtor = (window as unknown as { Hands: new (cfg: { locateFile: (f: string) => string }) => MPHands }).Hands;
   if (!HandsCtor) throw new Error("MediaPipe Hands global not available");
+
+  let settings = initialSettings;
+  const smoothed = { x: 0, y: 0, z: 0, init: false };
 
   const hands = new HandsCtor({
     locateFile: (file: string) => `${CDN}/${file}`,
@@ -110,6 +128,7 @@ export async function createHandTracker(
   hands.onResults((results: MPResults) => {
     const list = results.multiHandLandmarks ?? [];
     if (list.length === 0) {
+      smoothed.init = false;
       onUpdate(EMPTY_STATE);
       return;
     }
@@ -117,8 +136,8 @@ export async function createHandTracker(
     let yAcc = 0;
     let pinching = false;
     for (const lm of list) {
-      const f = extendedFlags(lm);
-      fingers += f.count;
+      const e = computeExtended(lm, settings.strictness);
+      fingers += (e.thumb ? 1 : 0) + (e.index ? 1 : 0) + (e.middle ? 1 : 0) + (e.ring ? 1 : 0) + (e.pinky ? 1 : 0);
       yAcc += lm[0].y;
       const t = lm[4], idx = lm[8], wrist = lm[0], midMcp = lm[9];
       const handSize = Math.hypot(wrist.x - midMcp.x, wrist.y - midMcp.y) || 0.1;
@@ -131,27 +150,54 @@ export async function createHandTracker(
       const b = list[1][0];
       dist = Math.min(1, Math.hypot(a.x - b.x, a.y - b.y));
     }
-    const primary = extendedFlags(list[0]);
+    const primaryExt = computeExtended(list[0], settings.strictness);
+    const isPointing = isPointingGesture(
+      primaryExt,
+      settings.pointingRequiredExtended,
+      settings.pointingRequiredFolded
+    );
+
+    // Exponential smoothing on index fingertip
+    const tip = list[0][8];
+    const a = 1 - settings.smoothing;
+    if (!smoothed.init) {
+      smoothed.x = tip.x;
+      smoothed.y = tip.y;
+      smoothed.z = tip.z ?? 0;
+      smoothed.init = true;
+    } else {
+      smoothed.x = smoothed.x + a * (tip.x - smoothed.x);
+      smoothed.y = smoothed.y + a * (tip.y - smoothed.y);
+      smoothed.z = smoothed.z + a * ((tip.z ?? 0) - smoothed.z);
+    }
+
     onUpdate({
       hands: list.length,
       fingerCount: fingers,
       handDistance: dist,
       avgY: yAcc / list.length,
-      primaryFingers: primary.count,
+      primaryFingers:
+        (primaryExt.thumb ? 1 : 0) +
+        (primaryExt.index ? 1 : 0) +
+        (primaryExt.middle ? 1 : 0) +
+        (primaryExt.ring ? 1 : 0) +
+        (primaryExt.pinky ? 1 : 0),
       landmarks: list.map((lm) => lm.slice()),
       pinching,
-      indexExtended: primary.index,
-      middleExtended: primary.middle,
-      ringExtended: primary.ring,
-      pinkyExtended: primary.pinky,
-      thumbExtended: primary.thumb,
+      extended: primaryExt,
+      isPointing,
+      smoothedTip: { x: smoothed.x, y: smoothed.y, z: smoothed.z },
     });
   });
 
   let stopped = false;
+  let lastSent = 0;
   const tick = async () => {
     if (stopped) return;
-    if (video.readyState >= 2) {
+    const minInterval = 1000 / Math.max(5, Math.min(60, settings.trackingFps));
+    const now = performance.now();
+    if (video.readyState >= 2 && now - lastSent >= minInterval) {
+      lastSent = now;
       try {
         await hands.send({ image: video });
       } catch {
@@ -162,8 +208,13 @@ export async function createHandTracker(
   };
   tick();
 
-  return () => {
-    stopped = true;
-    hands.close().catch(() => {});
+  return {
+    stop: () => {
+      stopped = true;
+      hands.close().catch(() => {});
+    },
+    updateSettings: (s) => {
+      settings = s;
+    },
   };
 }
