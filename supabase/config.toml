@@ -1,1 +1,4 @@
 project_id = "dhbfhiwkqopbvpnlkiki"
+
+[functions.recognize-handwriting]
+verify_jwt = false
