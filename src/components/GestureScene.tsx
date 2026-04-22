@@ -268,6 +268,13 @@ export const GestureScene = () => {
   const handleManualExpansion = (v: number) => { setExpansion(v); setManualMode(true); };
   const handleManualHue = (v: number) => { setHue(v); setManualMode(true); };
 
+  const handleClearAll = () => {
+    trailRef.current?.clear();
+    setOcrText("");
+    setOcrError(undefined);
+    setOcrOpen(false);
+  };
+
   const handleSmoothStrokes = () => {
     const strokes = trailRef.current?.getStrokes() ?? [];
     if (strokes.length === 0) {
