@@ -133,18 +133,24 @@ export const GestureScene = () => {
     }
     wasPinchingRef.current = state.pinching;
 
-    // Draw mode: sample index fingertip and add points
+    // Draw mode: only write when ONLY the index finger is extended (pointing gesture)
     if (drawMode) {
       const lm = state.landmarks[0];
-      if (lm && lm[8] && !state.pinching) {
+      const pointing =
+        state.indexExtended &&
+        !state.middleExtended &&
+        !state.ringExtended &&
+        !state.pinkyExtended &&
+        !state.pinching;
+      if (lm && lm[8] && pointing) {
         const tip = lm[8];
         // Mirror x to match flipped video preview, map to scene space
-        const x = (0.5 - tip.x) * 8; // wider X range
-        const y = (0.5 - tip.y) * 6; // invert Y
-        const z = (tip.z ?? 0) * -4; // depth
+        const x = (0.5 - tip.x) * 8;
+        const y = (0.5 - tip.y) * 6;
+        const z = (tip.z ?? 0) * -4;
         trailRef.current?.addPoint(x, y, z, hue);
         drawingRef.current = true;
-      } else if (drawingRef.current && (!lm || state.pinching)) {
+      } else if (drawingRef.current) {
         trailRef.current?.endStroke();
         drawingRef.current = false;
       }
