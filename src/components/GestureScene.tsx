@@ -258,7 +258,7 @@ export const GestureScene = () => {
       }
       if (e.key.toLowerCase() === "g" && status === "ready") setManualMode((m) => !m);
       if (e.key.toLowerCase() === "d") setDrawMode((d) => !d);
-      if (e.key.toLowerCase() === "c") trailRef.current?.clear();
+      if (e.key.toLowerCase() === "c") handleClearAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -447,7 +447,7 @@ export const GestureScene = () => {
         <Button size="sm" variant="secondary" onClick={handleRecognize} className="gap-1.5">
           <ScanText className="h-3 w-3" /> To text
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => trailRef.current?.clear()} className="gap-1.5" data-testid="clear-button">
+        <Button size="sm" variant="secondary" onClick={handleClearAll} className="gap-1.5" data-testid="clear-button">
           <Eraser className="h-3 w-3" /> Clear
         </Button>
         <DropdownMenu>
