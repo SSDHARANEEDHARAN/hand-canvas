@@ -93,6 +93,30 @@ export const DrawTrail = forwardRef<DrawTrailHandle>((_, ref) => {
         return { points, colors };
       });
     },
+    replaceStrokes: (incoming) => {
+      // Dispose existing geometries
+      strokesRef.current.forEach((s) => s.geometry.dispose());
+      strokesRef.current = [];
+      currentRef.current = null;
+      lastPointRef.current = null;
+      for (const ex of incoming) {
+        if (ex.points.length === 0) continue;
+        const stroke = newStroke();
+        const max = Math.min(ex.points.length, MAX_POINTS_PER_STROKE);
+        for (let i = 0; i < max; i++) {
+          const p = ex.points[i];
+          const c = ex.colors[i] ?? ex.colors[ex.colors.length - 1] ?? { r: 1, g: 1, b: 1 };
+          stroke.positions.push(p.x, p.y, p.z);
+          stroke.colors.push(c.r, c.g, c.b);
+        }
+        strokesRef.current.push(stroke);
+        if (strokesRef.current.length > MAX_STROKES) {
+          const removed = strokesRef.current.shift();
+          removed?.geometry.dispose();
+        }
+      }
+      dirtyRef.current = true;
+    },
   }));
 
   useFrame(() => {
