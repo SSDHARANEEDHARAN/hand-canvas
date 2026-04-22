@@ -12,6 +12,7 @@ export interface DrawTrailHandle {
   endStroke: () => void;
   clear: () => void;
   getStrokes: () => ExportedStroke[];
+  replaceStrokes: (strokes: ExportedStroke[]) => void;
 }
 
 interface Stroke {
