@@ -8,10 +8,9 @@ import { SettingsBar } from "./SettingsBar";
 import { CalibrationOverlay } from "./CalibrationOverlay";
 import { createHandTracker, EMPTY_STATE, HandState, HandTrackerHandle } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
-import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { useGestureSettings } from "@/lib/gestureSettings";
 import { Button } from "@/components/ui/button";
-import { Circle, Menu, Settings as SettingsIcon, Square, Sparkles, Camera, Palette, Crosshair } from "lucide-react";
+import { Menu, Settings as SettingsIcon, Sparkles, Camera, Palette, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -57,8 +56,6 @@ export const GestureScene = () => {
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
-  const recorder = useCanvasRecorder();
-
   const activeTheme = useMemo(() => getThemePreset(themeId), [themeId]);
 
   useEffect(() => {
@@ -138,9 +135,6 @@ export const GestureScene = () => {
       if (v) v.srcObject = null;
     };
   }, [cameraAttempt]);
-
-
-
   useEffect(() => {
     if (calibrating) return;
 
