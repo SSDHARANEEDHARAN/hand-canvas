@@ -20,7 +20,7 @@ export const ManualControls = ({
   onHue,
 }: Props) => {
   return (
-    <div className="flex w-full flex-col gap-3 rounded-lg border border-border/70 bg-background/80 p-3 text-xs text-foreground shadow-lg backdrop-blur-md">
+    <div className="pointer-events-auto absolute left-1/2 top-4 z-10 flex max-w-[min(640px,92vw)] -translate-x-1/2 flex-col gap-3 rounded-xl border border-white/10 bg-black/50 p-3 text-xs text-white/90 backdrop-blur-md">
       <div className="flex flex-wrap justify-center gap-1.5">
         {TEMPLATE_ORDER.map((t, i) => (
           <Button
@@ -31,7 +31,7 @@ export const ManualControls = ({
             className="h-7 px-2.5 text-[11px] capitalize"
             data-testid={`template-${t}`}
           >
-            <span className="mr-1 text-muted-foreground">{i + 1}</span>
+            <span className="mr-1 opacity-60">{i + 1}</span>
             {t}
           </Button>
         ))}
@@ -40,7 +40,7 @@ export const ManualControls = ({
         <label className="flex flex-col gap-1">
           <span className="flex justify-between">
             <span>Expansion</span>
-            <span className="font-mono text-muted-foreground">{expansion.toFixed(2)}</span>
+            <span className="font-mono opacity-70">{expansion.toFixed(2)}</span>
           </span>
           <Slider
             value={[expansion]}
@@ -55,7 +55,7 @@ export const ManualControls = ({
           <span className="flex justify-between">
             <span>Color</span>
             <span
-              className="h-3 w-6 rounded border border-border/70"
+              className="h-3 w-6 rounded"
               style={{ background: `hsl(${Math.round(hue * 360)} 85% 60%)` }}
             />
           </span>
