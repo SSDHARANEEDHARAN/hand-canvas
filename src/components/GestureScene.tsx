@@ -137,20 +137,9 @@ export const GestureScene = () => {
       stream?.getTracks().forEach((t) => t.stop());
       if (v) v.srcObject = null;
     };
-  }, [cameraAttempt, settings]);
+  }, [cameraAttempt]);
 
-  const mapTipToScene = useCallback((tipX: number, tipY: number, tipZ: number) => {
-    const mx = 1 - tipX;
-    const { minX, maxX, minY, maxY } = settings.calibration;
-    const nx = (mx - minX) / Math.max(0.001, maxX - minX);
-    const ny = (tipY - minY) / Math.max(0.001, maxY - minY);
-    const cx = Math.max(0, Math.min(1, nx));
-    const cy = Math.max(0, Math.min(1, ny));
-    const x = (cx - 0.5) * 8;
-    const y = (0.5 - cy) * 6;
-    const z = tipZ * -4;
-    return { x, y, z };
-  }, [settings.calibration]);
+
 
   useEffect(() => {
     if (calibrating) return;
