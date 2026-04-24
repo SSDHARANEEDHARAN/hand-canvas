@@ -185,11 +185,7 @@ export const GestureScene = () => {
       }
     }
 
-    if (state.smoothedTip) {
-      const { x, y, z } = mapTipToScene(state.smoothedTip.x, state.smoothedTip.y, state.smoothedTip.z);
-      trailRef.current?.setCursor?.(x, y, z, hue);
-    }
-  }, [state, template, manualMode, triggerBurst, hue, calibrating, mapTipToScene]);
+  }, [state, template, manualMode, triggerBurst, hue, calibrating]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -386,15 +382,17 @@ export const GestureScene = () => {
         </div>
       </header>
 
-      <div className="absolute left-1/2 top-20 z-10 w-full max-w-3xl -translate-x-1/2 px-3 sm:px-4">
-        <ManualControls
+      <div className="pointer-events-none absolute inset-x-0 top-20 z-10 px-3 sm:px-4">
+        <div className="pointer-events-auto mx-auto w-full max-w-3xl">
+          <ManualControls
           template={template}
           expansion={expansion}
           hue={hue}
           onTemplate={handleManualTemplate}
           onExpansion={handleManualExpansion}
           onHue={handleManualHue}
-        />
+          />
+        </div>
       </div>
 
       <div
