@@ -3,72 +3,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ParticleField, ParticleFieldHandle } from "./ParticleField";
 import { LandmarkOverlay } from "./LandmarkOverlay";
 import { ManualControls } from "./ManualControls";
-import { DrawTrail, DrawTrailHandle, ExportedStroke } from "./DrawTrail";
+import { DrawTrail, DrawTrailHandle } from "./DrawTrail";
 import { SettingsBar } from "./SettingsBar";
 import { CalibrationOverlay } from "./CalibrationOverlay";
-import { RecognizedTextEditor } from "./RecognizedTextEditor";
+
+import { TopNavBar } from "./TopNavBar";
+import { ThemePicker } from "./ThemePicker";
 import { TEMPLATE_ORDER, TemplateName } from "@/lib/templates";
 import { createHandTracker, EMPTY_STATE, HandState, HandTrackerHandle } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { useGestureSettings } from "@/lib/gestureSettings";
-import { smoothAll } from "@/lib/strokeSimplify";
+import { THEMES, applyTheme, playThemeSound, loadThemeId, saveThemeId, Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
-import { Circle, Square, Pencil, Eraser, Download, Sparkles, ScanText } from "lucide-react";
-import { exportTrailAsPNG, exportTrailAsSVG } from "@/lib/exportTrail";
-import { supabase } from "@/integrations/supabase/client";
+import { Circle, Square, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const CAM_W = 176;
 const CAM_H = 128;
 const PINCH_COOLDOWN_MS = 600;
-
-// Render strokes to a PNG data URL for OCR
-function strokesToPNG(strokes: ExportedStroke[], size = 720): string | null {
-  if (strokes.length === 0) return null;
-  // Find bounding box
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const s of strokes) for (const p of s.points) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (-p.y < minY) minY = -p.y;
-    if (-p.y > maxY) maxY = -p.y;
-  }
-  if (!isFinite(minX)) return null;
-  const w = Math.max(0.001, maxX - minX);
-  const h = Math.max(0.001, maxY - minY);
-  const scale = (size - 80) / Math.max(w, h);
-  const ox = (size - w * scale) / 2 - minX * scale;
-  const oy = (size - h * scale) / 2 - minY * scale;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, size, size);
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 6;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (const s of strokes) {
-    if (s.points.length < 2) continue;
-    ctx.beginPath();
-    ctx.moveTo(s.points[0].x * scale + ox, -s.points[0].y * scale + oy);
-    for (let i = 1; i < s.points.length; i++) {
-      ctx.lineTo(s.points[i].x * scale + ox, -s.points[i].y * scale + oy);
-    }
-    ctx.stroke();
-  }
-  return canvas.toDataURL("image/png");
-}
 
 export const GestureScene = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -86,10 +39,7 @@ export const GestureScene = () => {
   const [cameraAttempt, setCameraAttempt] = useState(0);
   const [drawMode, setDrawMode] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
-  const [ocrOpen, setOcrOpen] = useState(false);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrText, setOcrText] = useState("");
-  const [ocrError, setOcrError] = useState<string | undefined>();
+  const [theme, setTheme] = useState<Theme>(() => THEMES.find((t) => t.id === loadThemeId()) ?? THEMES[0]);
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
@@ -270,56 +220,20 @@ export const GestureScene = () => {
 
   const handleClearAll = () => {
     trailRef.current?.clear();
-    setOcrText("");
-    setOcrError(undefined);
-    setOcrOpen(false);
   };
 
-  const handleSmoothStrokes = () => {
-    const strokes = trailRef.current?.getStrokes() ?? [];
-    if (strokes.length === 0) {
-      toast.info("Nothing to smooth — draw something first.");
-      return;
-    }
-    const smoothed = smoothAll(strokes, 0.05, 8);
-    trailRef.current?.replaceStrokes(smoothed);
-    toast.success("Strokes smoothed");
+  const handlePickTheme = (t: Theme) => {
+    setTheme(t);
+    applyTheme(t);
+    saveThemeId(t.id);
+    playThemeSound(t);
   };
 
-  const handleRecognize = async () => {
-    const strokes = trailRef.current?.getStrokes() ?? [];
-    if (strokes.length === 0) {
-      toast.info("Draw something first.");
-      return;
-    }
-    const dataUrl = strokesToPNG(strokes);
-    if (!dataUrl) {
-      toast.error("Could not render strokes.");
-      return;
-    }
-    setOcrOpen(true);
-    setOcrLoading(true);
-    setOcrText("");
-    setOcrError(undefined);
-    try {
-      const { data, error } = await supabase.functions.invoke("recognize-handwriting", {
-        body: { imageDataUrl: dataUrl },
-      });
-      if (error) throw error;
-      const text = (data as { text?: string; error?: string } | null)?.text ?? "";
-      const errMsg = (data as { error?: string } | null)?.error;
-      if (errMsg) {
-        setOcrError(errMsg);
-      } else {
-        setOcrText(text || "(no text recognized)");
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Recognition failed";
-      setOcrError(msg);
-    } finally {
-      setOcrLoading(false);
-    }
-  };
+  // Apply persisted theme on mount
+  useEffect(() => {
+    applyTheme(theme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const liveTip = useMemo(
     () => (state.smoothedTip ? { x: state.smoothedTip.x, y: state.smoothedTip.y } : null),
@@ -339,16 +253,24 @@ export const GestureScene = () => {
         <DrawTrail ref={trailRef} />
       </Canvas>
 
-      <SettingsBar
-        settings={settings}
-        onChange={setSettings}
-        onCalibrate={() => {
-          if (status !== "ready") {
-            toast.error("Camera must be ready to calibrate.");
-            return;
-          }
-          setCalibrating(true);
-        }}
+      <TopNavBar
+        cameraStatus={status}
+        right={
+          <>
+            <ThemePicker currentId={theme.id} onPick={handlePickTheme} />
+            <SettingsBar
+              settings={settings}
+              onChange={setSettings}
+              onCalibrate={() => {
+                if (status !== "ready") {
+                  toast.error("Camera must be ready to calibrate.");
+                  return;
+                }
+                setCalibrating(true);
+              }}
+            />
+          </>
+        }
       />
 
       <ManualControls
@@ -429,7 +351,7 @@ export const GestureScene = () => {
       )}
 
       {/* HUD */}
-      <div className="pointer-events-none absolute left-4 top-4 space-y-1 rounded-lg bg-black/40 p-3 text-xs text-white/90 backdrop-blur-md">
+      <div className="pointer-events-none absolute left-4 top-20 space-y-1 rounded-lg bg-black/40 p-3 text-xs text-white/90 backdrop-blur-md">
         <div className="text-sm font-semibold">Gesture Particles</div>
         <div>Template: <span className="font-mono">{template}</span></div>
         <div>Hands: {state.hands} · Fingers: {state.fingerCount}</div>
@@ -437,8 +359,8 @@ export const GestureScene = () => {
         <div className="opacity-60">Mode: {manualMode ? "manual" : "gesture"}{drawMode ? " · draw" : ""}</div>
       </div>
 
-      {/* Action buttons */}
-      <div className="absolute right-4 top-4 z-10 flex flex-col gap-2">
+      {/* Action buttons (core only) */}
+      <div className="absolute right-4 top-20 z-10 flex flex-col gap-2">
         <Button size="sm" variant={recorder.isRecording ? "destructive" : "secondary"} onClick={recorder.toggle} disabled={!recorder.supported} className="gap-1.5" data-testid="record-button">
           {recorder.isRecording ? <Square className="h-3 w-3 fill-current" /> : <Circle className="h-3 w-3 fill-current text-destructive" />}
           {recorder.isRecording ? "Stop" : "Record"}
@@ -448,26 +370,6 @@ export const GestureScene = () => {
           <Pencil className="h-3 w-3" />
           {drawMode ? "Drawing" : "Draw"}
         </Button>
-        <Button size="sm" variant="secondary" onClick={handleSmoothStrokes} className="gap-1.5">
-          <Sparkles className="h-3 w-3" /> Smooth
-        </Button>
-        <Button size="sm" variant="secondary" onClick={handleRecognize} className="gap-1.5">
-          <ScanText className="h-3 w-3" /> To text
-        </Button>
-        <Button size="sm" variant="secondary" onClick={handleClearAll} className="gap-1.5" data-testid="clear-button">
-          <Eraser className="h-3 w-3" /> Clear
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="secondary" className="gap-1.5" data-testid="export-button">
-              <Download className="h-3 w-3" /> Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { const s = trailRef.current?.getStrokes() ?? []; if (s.length === 0) return; exportTrailAsPNG(s); }}>Download PNG</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { const s = trailRef.current?.getStrokes() ?? []; if (s.length === 0) return; exportTrailAsSVG(s); }}>Download SVG</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs space-y-1 rounded-lg bg-black/40 p-3 text-[11px] text-white/80 backdrop-blur-md">
@@ -493,19 +395,6 @@ export const GestureScene = () => {
         />
       )}
 
-      <RecognizedTextEditor
-        open={ocrOpen}
-        loading={ocrLoading}
-        initialText={ocrText}
-        error={ocrError}
-        onClose={() => setOcrOpen(false)}
-        onCopy={(t) => {
-          navigator.clipboard?.writeText(t).then(
-            () => toast.success("Copied to clipboard"),
-            () => toast.error("Copy failed")
-          );
-        }}
-      />
     </div>
   );
 };
