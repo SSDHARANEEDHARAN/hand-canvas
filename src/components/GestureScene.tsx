@@ -23,47 +23,6 @@ const CAM_W = 176;
 const CAM_H = 128;
 const PINCH_COOLDOWN_MS = 600;
 
-// Render strokes to a PNG data URL for OCR
-function strokesToPNG(strokes: ExportedStroke[], size = 720): string | null {
-  if (strokes.length === 0) return null;
-  // Find bounding box
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const s of strokes) for (const p of s.points) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (-p.y < minY) minY = -p.y;
-    if (-p.y > maxY) maxY = -p.y;
-  }
-  if (!isFinite(minX)) return null;
-  const w = Math.max(0.001, maxX - minX);
-  const h = Math.max(0.001, maxY - minY);
-  const scale = (size - 80) / Math.max(w, h);
-  const ox = (size - w * scale) / 2 - minX * scale;
-  const oy = (size - h * scale) / 2 - minY * scale;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, size, size);
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 6;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (const s of strokes) {
-    if (s.points.length < 2) continue;
-    ctx.beginPath();
-    ctx.moveTo(s.points[0].x * scale + ox, -s.points[0].y * scale + oy);
-    for (let i = 1; i < s.points.length; i++) {
-      ctx.lineTo(s.points[i].x * scale + ox, -s.points[i].y * scale + oy);
-    }
-    ctx.stroke();
-  }
-  return canvas.toDataURL("image/png");
-}
-
 export const GestureScene = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fieldRef = useRef<ParticleFieldHandle>(null);
@@ -80,10 +39,7 @@ export const GestureScene = () => {
   const [cameraAttempt, setCameraAttempt] = useState(0);
   const [drawMode, setDrawMode] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
-  const [ocrOpen, setOcrOpen] = useState(false);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrText, setOcrText] = useState("");
-  const [ocrError, setOcrError] = useState<string | undefined>();
+  const [theme, setTheme] = useState<Theme>(() => THEMES.find((t) => t.id === loadThemeId()) ?? THEMES[0]);
   const lastSwitchRef = useRef(0);
   const lastPinchRef = useRef(0);
   const wasPinchingRef = useRef(false);
