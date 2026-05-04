@@ -3,27 +3,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ParticleField, ParticleFieldHandle } from "./ParticleField";
 import { LandmarkOverlay } from "./LandmarkOverlay";
 import { ManualControls } from "./ManualControls";
-import { DrawTrail, DrawTrailHandle, ExportedStroke } from "./DrawTrail";
+import { DrawTrail, DrawTrailHandle } from "./DrawTrail";
 import { SettingsBar } from "./SettingsBar";
 import { CalibrationOverlay } from "./CalibrationOverlay";
 import { RecognizedTextEditor } from "./RecognizedTextEditor";
+import { TopNavBar } from "./TopNavBar";
+import { ThemePicker } from "./ThemePicker";
 import { TEMPLATE_ORDER, TemplateName } from "@/lib/templates";
 import { createHandTracker, EMPTY_STATE, HandState, HandTrackerHandle } from "@/lib/handTracker";
 import { playBurstSound } from "@/lib/audio";
 import { useCanvasRecorder } from "@/hooks/useCanvasRecorder";
 import { useGestureSettings } from "@/lib/gestureSettings";
-import { smoothAll } from "@/lib/strokeSimplify";
+import { THEMES, applyTheme, playThemeSound, loadThemeId, saveThemeId, Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
-import { Circle, Square, Pencil, Eraser, Download, Sparkles, ScanText } from "lucide-react";
-import { exportTrailAsPNG, exportTrailAsSVG } from "@/lib/exportTrail";
-import { supabase } from "@/integrations/supabase/client";
+import { Circle, Square, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const CAM_W = 176;
 const CAM_H = 128;
