@@ -220,56 +220,20 @@ export const GestureScene = () => {
 
   const handleClearAll = () => {
     trailRef.current?.clear();
-    setOcrText("");
-    setOcrError(undefined);
-    setOcrOpen(false);
   };
 
-  const handleSmoothStrokes = () => {
-    const strokes = trailRef.current?.getStrokes() ?? [];
-    if (strokes.length === 0) {
-      toast.info("Nothing to smooth — draw something first.");
-      return;
-    }
-    const smoothed = smoothAll(strokes, 0.05, 8);
-    trailRef.current?.replaceStrokes(smoothed);
-    toast.success("Strokes smoothed");
+  const handlePickTheme = (t: Theme) => {
+    setTheme(t);
+    applyTheme(t);
+    saveThemeId(t.id);
+    playThemeSound(t);
   };
 
-  const handleRecognize = async () => {
-    const strokes = trailRef.current?.getStrokes() ?? [];
-    if (strokes.length === 0) {
-      toast.info("Draw something first.");
-      return;
-    }
-    const dataUrl = strokesToPNG(strokes);
-    if (!dataUrl) {
-      toast.error("Could not render strokes.");
-      return;
-    }
-    setOcrOpen(true);
-    setOcrLoading(true);
-    setOcrText("");
-    setOcrError(undefined);
-    try {
-      const { data, error } = await supabase.functions.invoke("recognize-handwriting", {
-        body: { imageDataUrl: dataUrl },
-      });
-      if (error) throw error;
-      const text = (data as { text?: string; error?: string } | null)?.text ?? "";
-      const errMsg = (data as { error?: string } | null)?.error;
-      if (errMsg) {
-        setOcrError(errMsg);
-      } else {
-        setOcrText(text || "(no text recognized)");
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Recognition failed";
-      setOcrError(msg);
-    } finally {
-      setOcrLoading(false);
-    }
-  };
+  // Apply persisted theme on mount
+  useEffect(() => {
+    applyTheme(theme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const liveTip = useMemo(
     () => (state.smoothedTip ? { x: state.smoothedTip.x, y: state.smoothedTip.y } : null),
@@ -289,16 +253,24 @@ export const GestureScene = () => {
         <DrawTrail ref={trailRef} />
       </Canvas>
 
-      <SettingsBar
-        settings={settings}
-        onChange={setSettings}
-        onCalibrate={() => {
-          if (status !== "ready") {
-            toast.error("Camera must be ready to calibrate.");
-            return;
-          }
-          setCalibrating(true);
-        }}
+      <TopNavBar
+        cameraStatus={status}
+        right={
+          <>
+            <ThemePicker currentId={theme.id} onPick={handlePickTheme} />
+            <SettingsBar
+              settings={settings}
+              onChange={setSettings}
+              onCalibrate={() => {
+                if (status !== "ready") {
+                  toast.error("Camera must be ready to calibrate.");
+                  return;
+                }
+                setCalibrating(true);
+              }}
+            />
+          </>
+        }
       />
 
       <ManualControls
@@ -379,7 +351,7 @@ export const GestureScene = () => {
       )}
 
       {/* HUD */}
-      <div className="pointer-events-none absolute left-4 top-4 space-y-1 rounded-lg bg-black/40 p-3 text-xs text-white/90 backdrop-blur-md">
+      <div className="pointer-events-none absolute left-4 top-20 space-y-1 rounded-lg bg-black/40 p-3 text-xs text-white/90 backdrop-blur-md">
         <div className="text-sm font-semibold">Gesture Particles</div>
         <div>Template: <span className="font-mono">{template}</span></div>
         <div>Hands: {state.hands} · Fingers: {state.fingerCount}</div>
@@ -387,8 +359,8 @@ export const GestureScene = () => {
         <div className="opacity-60">Mode: {manualMode ? "manual" : "gesture"}{drawMode ? " · draw" : ""}</div>
       </div>
 
-      {/* Action buttons */}
-      <div className="absolute right-4 top-4 z-10 flex flex-col gap-2">
+      {/* Action buttons (core only) */}
+      <div className="absolute right-4 top-20 z-10 flex flex-col gap-2">
         <Button size="sm" variant={recorder.isRecording ? "destructive" : "secondary"} onClick={recorder.toggle} disabled={!recorder.supported} className="gap-1.5" data-testid="record-button">
           {recorder.isRecording ? <Square className="h-3 w-3 fill-current" /> : <Circle className="h-3 w-3 fill-current text-destructive" />}
           {recorder.isRecording ? "Stop" : "Record"}
@@ -398,26 +370,6 @@ export const GestureScene = () => {
           <Pencil className="h-3 w-3" />
           {drawMode ? "Drawing" : "Draw"}
         </Button>
-        <Button size="sm" variant="secondary" onClick={handleSmoothStrokes} className="gap-1.5">
-          <Sparkles className="h-3 w-3" /> Smooth
-        </Button>
-        <Button size="sm" variant="secondary" onClick={handleRecognize} className="gap-1.5">
-          <ScanText className="h-3 w-3" /> To text
-        </Button>
-        <Button size="sm" variant="secondary" onClick={handleClearAll} className="gap-1.5" data-testid="clear-button">
-          <Eraser className="h-3 w-3" /> Clear
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="secondary" className="gap-1.5" data-testid="export-button">
-              <Download className="h-3 w-3" /> Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { const s = trailRef.current?.getStrokes() ?? []; if (s.length === 0) return; exportTrailAsPNG(s); }}>Download PNG</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { const s = trailRef.current?.getStrokes() ?? []; if (s.length === 0) return; exportTrailAsSVG(s); }}>Download SVG</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs space-y-1 rounded-lg bg-black/40 p-3 text-[11px] text-white/80 backdrop-blur-md">
