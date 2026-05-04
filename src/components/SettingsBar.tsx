@@ -24,24 +24,21 @@ export const SettingsBar = ({ settings, onChange, onCalibrate }: Props) => {
     list.includes(f) ? list.filter((x) => x !== f) : [...list, f];
 
   return (
-    <div className="pointer-events-auto absolute left-1/2 top-4 z-20 w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-white/10 bg-black/70 text-white/90 backdrop-blur-md shadow-2xl">
-      <button
+    <div className="pointer-events-auto relative">
+      <Button
         type="button"
+        size="sm"
+        variant="secondary"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm"
+        className="gap-1.5"
       >
-        <span className="flex items-center gap-2 font-semibold">
-          <SettingsIcon className="h-4 w-4" /> Settings
-        </span>
-        <span className="flex items-center gap-2 text-xs opacity-70">
-          {settings.pointingRequiredExtended.join("+")} extended ·{" "}
-          {Math.round(settings.smoothing * 100)}% smooth · {settings.trackingFps}fps
-          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </span>
-      </button>
+        <SettingsIcon className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Settings</span>
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </Button>
 
       {open && (
-        <div className="grid gap-4 border-t border-white/10 p-4 text-xs sm:grid-cols-2">
+        <div className="absolute right-0 top-full z-30 mt-2 grid w-[min(640px,calc(100vw-2rem))] gap-4 rounded-lg border border-white/10 bg-black/85 p-4 text-xs text-white/90 shadow-2xl backdrop-blur-md sm:grid-cols-2">
           <div className="space-y-2">
             <div className="font-semibold text-white">Pointing — must be EXTENDED</div>
             <div className="flex flex-wrap gap-3">
