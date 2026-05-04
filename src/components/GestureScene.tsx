@@ -395,19 +395,6 @@ export const GestureScene = () => {
         />
       )}
 
-      <RecognizedTextEditor
-        open={ocrOpen}
-        loading={ocrLoading}
-        initialText={ocrText}
-        error={ocrError}
-        onClose={() => setOcrOpen(false)}
-        onCopy={(t) => {
-          navigator.clipboard?.writeText(t).then(
-            () => toast.success("Copied to clipboard"),
-            () => toast.error("Copy failed")
-          );
-        }}
-      />
     </div>
   );
 };
