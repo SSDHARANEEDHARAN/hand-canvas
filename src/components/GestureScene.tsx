@@ -6,7 +6,7 @@ import { ManualControls } from "./ManualControls";
 import { DrawTrail, DrawTrailHandle } from "./DrawTrail";
 import { SettingsBar } from "./SettingsBar";
 import { CalibrationOverlay } from "./CalibrationOverlay";
-import { RecognizedTextEditor } from "./RecognizedTextEditor";
+
 import { TopNavBar } from "./TopNavBar";
 import { ThemePicker } from "./ThemePicker";
 import { TEMPLATE_ORDER, TemplateName } from "@/lib/templates";
